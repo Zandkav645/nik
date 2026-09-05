@@ -1,0 +1,316 @@
+(function() {
+    'use strict';
+
+    // ============================================================
+    // ELEMEN DOM
+    // ============================================================
+    const nikInput = document.getElementById('nikInput');
+    const cekBtn = document.getElementById('cekBtn');
+    const resultBox = document.getElementById('resultBox');
+    const dataGrid = document.getElementById('dataGrid');
+    const fileInfo = document.getElementById('fileInfo');
+    const simpanBtn = document.getElementById('simpanBtn');
+
+    // ============================================================
+    // VARIABEL GLOBAL
+    // ============================================================
+    let dataProvinsi = {};
+    let dataKabupaten = {};
+    let dataKecamatan = {};
+    let dataDesa = {};
+    let dataKodepos = {};
+    let dataZodiak = {};
+    let nikTarget = '';
+    let hasilData = {};
+
+    // ============================================================
+    // LOAD DATA DARI FOLDER data/
+    // ============================================================
+    async function loadData() {
+        try {
+            const [provinsi, kabupaten, kecamatan, desa, kodepos, zodiak] = await Promise.all([
+                fetch('data/provinsi.json').then(r => r.json()),
+                fetch('data/kabupaten.json').then(r => r.json()),
+                fetch('data/kecamatan.json').then(r => r.json()),
+                fetch('data/desa.json').then(r => r.json()),
+                fetch('data/kodepos.json').then(r => r.json()),
+                fetch('data/zodiak.json').then(r => r.json())
+            ]);
+
+            dataProvinsi = provinsi;
+            dataKabupaten = kabupaten;
+            dataKecamatan = kecamatan;
+            dataDesa = desa;
+            dataKodepos = kodepos;
+            dataZodiak = zodiak;
+
+            console.log('✅ Data berhasil dimuat');
+        } catch (error) {
+            console.error('❌ Gagal memuat data:', error);
+            alert('Gagal memuat data. Pastikan folder data/ tersedia dengan semua file JSON.');
+        }
+    }
+
+    // ============================================================
+    // CEK NIK - LENGKAP
+    // ============================================================
+    function cekNik(nik) {
+        // Validasi panjang NIK
+        if (nik.length !== 16) {
+            alert('NIK harus 16 digit!');
+            return null;
+        }
+
+        // Validasi angka semua
+        if (!/^\d{16}$/.test(nik)) {
+            alert('NIK hanya boleh berisi angka!');
+            return null;
+        }
+
+        // ============================================================
+        // 1. Ambil kode wilayah (6 digit pertama)
+        // ============================================================
+        const provinsiCode = nik.substring(0, 2);
+        const kabupatenCode = nik.substring(2, 4);
+        const kecamatanCode = nik.substring(4, 6);
+        const desaCode = nik.substring(0, 6);
+
+        // ============================================================
+        // 2. Tanggal Lahir (digits 7-12)
+        // ============================================================
+        let tgl = parseInt(nik.substring(6, 8));
+        let bln = parseInt(nik.substring(8, 10));
+        let tahun = parseInt(nik.substring(10, 12));
+
+        // Koreksi untuk wanita (tanggal + 40)
+        let tglAsli = tgl;
+        let jenisKelamin = 'Laki-laki';
+        if (tgl > 40) {
+            tglAsli = tgl - 40;
+            jenisKelamin = 'Perempuan';
+        }
+
+        // Tahun lahir (1900 atau 2000)
+        let tahunLengkap;
+        if (tahun >= 0 && tahun <= 24) {
+            tahunLengkap = 2000 + tahun;
+        } else {
+            tahunLengkap = 1900 + tahun;
+        }
+
+        // Nama bulan
+        const bulanNama = [
+            'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+            'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'
+        ];
+        const namaBulan = bulanNama[bln - 1] || 'Tidak valid';
+        const tglFmt = String(tglAsli).padStart(2, '0');
+
+        // ============================================================
+        // 3. Zodiak (berdasarkan tanggal lahir)
+        // ============================================================
+        let zodiak = 'Tidak valid';
+        const dateKey = String(bln).padStart(2, '0') + String(tglAsli).padStart(2, '0');
+
+        for (const key in dataZodiak) {
+            const z = dataZodiak[key];
+            const start = z.start;
+            const end = z.end;
+
+            if (start > end) {
+                // Zodiak lintas tahun (Capricorn)
+                if (dateKey >= start || dateKey <= end) {
+                    zodiak = z.name;
+                    break;
+                }
+            } else {
+                // Zodiak normal
+                if (dateKey >= start && dateKey <= end) {
+                    zodiak = z.name;
+                    break;
+                }
+            }
+        }
+
+        // ============================================================
+        // 4. Nomor Urut (4 digit terakhir)
+        // ============================================================
+        const nomorUrut = nik.substring(12, 16);
+
+        // ============================================================
+        // 5. RW/RT (dari nomor urut)
+        // ============================================================
+        const rw = nomorUrut.substring(0, 2);
+        const rt = nomorUrut.substring(2, 4);
+
+        // ============================================================
+        // 6. Nama Provinsi, Kabupaten, Kecamatan, Desa
+        // ============================================================
+        const namaProvinsi = dataProvinsi[provinsiCode] || 'Tidak ditemukan';
+        const namaKabupaten = dataKabupaten[kabupatenCode] || 'Tidak ditemukan';
+        const namaKecamatan = dataKecamatan[kecamatanCode] || 'Tidak ditemukan';
+        const namaDesa = dataDesa[desaCode] || 'Tidak ditemukan';
+
+        // ============================================================
+        // 7. Kode Pos (berdasarkan provinsi + kabupaten)
+        // ============================================================
+        const kodePosKey = provinsiCode + kabupatenCode;
+        const kodepos = dataKodepos[kodePosKey] || 'Tidak ditemukan';
+
+        // ============================================================
+        // 8. STATUS PERKAWINAN & AGAMA
+        //    Note: Dari NIK tidak bisa deteksi status & agama,
+        //    ini data statis sesuai KTP default
+        // ============================================================
+        const status = 'Belum Kawin';
+        const agama = 'Islam';
+
+        // ============================================================
+        // 9. SIMPAN HASIL
+        // ============================================================
+        hasilData = {
+            nik: nik,
+            provinsi: namaProvinsi,
+            kabupaten: namaKabupaten,
+            kecamatan: namaKecamatan,
+            desa: namaDesa,
+            jenisKelamin: jenisKelamin,
+            tglLahir: tglFmt + ' ' + namaBulan + ' ' + tahunLengkap,
+            zodiak: zodiak,
+            rw: rw,
+            rt: rt,
+            kodepos: kodepos,
+            status: status,
+            agama: agama,
+            nomorUrut: nomorUrut,
+            provinsiCode: provinsiCode,
+            kabupatenCode: kabupatenCode,
+            kecamatanCode: kecamatanCode
+        };
+
+        return hasilData;
+    }
+
+    // ============================================================
+    // TAMPILKAN HASIL
+    // ============================================================
+    function tampilkanHasil(data) {
+        if (!data) return;
+
+        resultBox.classList.remove('show');
+
+        const items = [
+            { icon: 'fa-id-card', label: 'NIK', value: data.nik },
+            { icon: 'fa-map-marker-alt', label: 'Provinsi', value: data.provinsi },
+            { icon: 'fa-city', label: 'Kabupaten/Kota', value: data.kabupaten },
+            { icon: 'fa-map-pin', label: 'Kecamatan', value: data.kecamatan },
+            { icon: 'fa-home', label: 'Desa/Kelurahan', value: data.desa },
+            { icon: 'fa-venus-mars', label: 'Jenis Kelamin', value: data.jenisKelamin },
+            { icon: 'fa-birthday-cake', label: 'Tanggal Lahir', value: data.tglLahir },
+            { icon: 'fa-star', label: 'Zodiak', value: data.zodiak },
+            { icon: 'fa-road', label: 'RW', value: data.rw },
+            { icon: 'fa-road', label: 'RT', value: data.rt },
+            { icon: 'fa-mail-bulk', label: 'Kode Pos', value: data.kodepos },
+            { icon: 'fa-ring', label: 'Status Perkawinan', value: data.status },
+            { icon: 'fa-mosque', label: 'Agama', value: data.agama },
+            { icon: 'fa-sort-numeric-up', label: 'Nomor Urut', value: data.nomorUrut }
+        ];
+
+        let html = '';
+        items.forEach(item => {
+            html += `
+                <div class="data-item">
+                    <div class="data-icon"><i class="fas ${item.icon}"></i></div>
+                    <div class="data-label">${item.label}</div>
+                    <div class="data-value">${item.value}</div>
+                </div>
+            `;
+        });
+
+        dataGrid.innerHTML = html;
+        fileInfo.textContent = `Hasil juga disimpan di: nik_result_${data.nik}.txt`;
+        resultBox.classList.add('show');
+        resultBox.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ============================================================
+    // SIMPAN KE FILE .txt
+    // ============================================================
+    function simpanTxt(data) {
+        if (!data) return;
+
+        const content = `
+=== HASIL NIK ===
+NIK: ${data.nik}
+Provinsi: ${data.provinsi}
+Kabupaten/Kota: ${data.kabupaten}
+Kecamatan: ${data.kecamatan}
+Desa/Kelurahan: ${data.desa}
+Jenis Kelamin: ${data.jenisKelamin}
+Tanggal Lahir: ${data.tglLahir}
+Zodiak: ${data.zodiak}
+RW: ${data.rw}
+RT: ${data.rt}
+Kode Pos: ${data.kodepos}
+Status Perkawinan: ${data.status}
+Agama: ${data.agama}
+Nomor Urut: ${data.nomorUrut}
+================
+        `.trim();
+
+        const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `nik_result_${data.nik}.txt`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    // ============================================================
+    // EVENT HANDLER
+    // ============================================================
+    function handleCek() {
+        const nik = nikInput.value.trim();
+        if (!nik) {
+            alert('Masukkan NIK terlebih dahulu!');
+            return;
+        }
+
+        const result = cekNik(nik);
+        if (result) {
+            nikTarget = nik;
+            tampilkanHasil(result);
+        }
+    }
+
+    // ============================================================
+    // EVENT LISTENER
+    // ============================================================
+    cekBtn.addEventListener('click', handleCek);
+
+    nikInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            handleCek();
+        }
+    });
+
+    simpanBtn.addEventListener('click', function() {
+        if (hasilData && hasilData.nik) {
+            simpanTxt(hasilData);
+        } else {
+            alert('Tidak ada data untuk disimpan. Cek NIK terlebih dahulu!');
+        }
+    });
+
+    // ============================================================
+    // INISIALISASI - LOAD DATA
+    // ============================================================
+    loadData();
+
+    console.log('🚀 Aplikasi Cek NIK siap digunakan!');
+    console.log('📁 Data di-load dari folder data/');
+
+})();
