@@ -1,0 +1,14 @@
+{
+    "capricorn": { "start": "1222", "end": "0119", "name": "Capricorn ♑" },
+    "aquarius": { "start": "0120", "end": "0218", "name": "Aquarius ♒" },
+    "pisces": { "start": "0219", "end": "0320", "name": "Pisces ♓" },
+    "aries": { "start": "0321", "end": "0419", "name": "Aries ♈" },
+    "taurus": { "start": "0420", "end": "0520", "name": "Taurus ♉" },
+    "gemini": { "start": "0521", "end": "0620", "name": "Gemini ♊" },
+    "cancer": { "start": "0621", "end": "0722", "name": "Cancer ♋" },
+    "leo": { "start": "0723", "end": "0822", "name": "Leo ♌" },
+    "virgo": { "start": "0823", "end": "0922", "name": "Virgo ♍" },
+    "libra": { "start": "0923", "end": "1022", "name": "Libra ♎" },
+    "scorpio": { "start": "1023", "end": "1121", "name": "Scorpio ♏" },
+    "sagittarius": { "start": "1122", "end": "1221", "name": "Sagittarius ♐" }
+}
